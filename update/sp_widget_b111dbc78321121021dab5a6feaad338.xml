@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
-        <client_script><![CDATA[function($rootScope,$scope) {
+        <client_script><![CDATA[function($rootScope,$scope,spUtil) {
 	/* widget controller */
 	var c = this;
 	c.selectItem = function(idx) {
@@ -10,6 +10,44 @@
 		$rootScope.noteID = id;
 		$rootScope.$emit('selectNote', id);
 	}
+	// Subscribe to event.  Set the new title and note values on the 
+	// c.data object
+	$rootScope.$on('updateTitle', function(event,data) { 
+		c.data.notes[c.notePos].title = data.title;
+		c.data.notes[c.notePos].note = data.note;
+	});
+	
+	c.newNote = function() {
+		c.server.get({
+			action: 'newNote'
+		}).then(function(r) {
+			c.data.notes.unshift(r.data.newNote);
+			c.data.noteID = r.data.noteID;
+			$rootScope.noteID = c.data.noteID;
+			$rootScope.$emit('selectNote', c.data.noteID);
+		});
+	}
+
+	$rootScope.$on('deleteNote', function(event,data) {
+		c.data.notes.splice($scope.notePos, 1);
+		
+			// Record removed from data object on the client and passed to server
+	c.snNoteUpdate = function(name,sysID){
+
+		for (var i=0;i<c.data.notes.length;i++){
+			if(c.data.notes[i].sys_id == name.data.sys_id){
+				if(name.data.record.note){
+					c.data.notes[i].note = name.data.record.note.display_value;
+				}
+				if(name.data.record.title){
+					c.data.notes[i].title = name.data.record.title.display_value;
+				}
+				c.server.update();
+
+			}
+		}
+	}
+	});
 }]]></client_script>
         <controller_as>c</controller_as>
         <css/>
@@ -42,24 +80,49 @@
 		//push the populated obj into the array
 		data.notes.push(noteObj);
 	}
+	
+	if (input) {
+		if (input.action == 'newNote') {
+			var newNote = new GlideRecord('x_snc_createnotes_note');
+			newNote.newRecord();
+			var id = newNote.insert();
+			data.noteID = id;
+			data.newNote = {};
+			$sp.getRecordValues(data.newNote,newNote,"title,note,sys_id");
+
+		}
+
+		if (input.action == 'snDeleteNote') {
+			var delNote = new GlideRecord('x_snc_createnotes_note');
+			// The notes record should already be gone.  Just
+			// making sure it no longer exists.
+			if(delNote.get(input.noteID)){
+				delNote.deleteRecord();
+			}
+
+		}
+
+	}
+	
+
 })();]]></script>
         <servicenow>false</servicenow>
         <sys_class_name>sp_widget</sys_class_name>
         <sys_created_by>jaik</sys_created_by>
         <sys_created_on>2024-11-03 13:08:19</sys_created_on>
         <sys_id>b111dbc78321121021dab5a6feaad338</sys_id>
-        <sys_mod_count>6</sys_mod_count>
+        <sys_mod_count>9</sys_mod_count>
         <sys_name>Notes List2</sys_name>
         <sys_package display_value="CreateNotes" source="x_snc_createnotes">df5fd9a5090232007f44e1046c8ff69f</sys_package>
         <sys_policy/>
         <sys_scope display_value="CreateNotes">df5fd9a5090232007f44e1046c8ff69f</sys_scope>
         <sys_update_name>sp_widget_b111dbc78321121021dab5a6feaad338</sys_update_name>
         <sys_updated_by>jaik</sys_updated_by>
-        <sys_updated_on>2024-11-03 13:52:10</sys_updated_on>
+        <sys_updated_on>2024-11-04 14:42:51</sys_updated_on>
         <template><![CDATA[<div class="panel panel-default">
   <div class="panel-heading clearfix">
     <h3 class="panel-title pull-left">
-      ${Notes}
+      {{::c.options.title}}
     </h3>
   </div>
   <div class="list-group">
